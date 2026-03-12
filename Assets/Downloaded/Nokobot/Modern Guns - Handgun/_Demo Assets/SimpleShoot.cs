@@ -20,6 +20,8 @@ public class SimpleShoot : MonoBehaviour
     [Header("Audio")]
     public AudioClip gunSound;
     private AudioSource audioSource;
+    public AudioClip headshotSound;
+    public AudioClip reloadSound;
 
     [Header("Location References")]
     [SerializeField] private Animator gunAnimator;
@@ -34,10 +36,11 @@ public class SimpleShoot : MonoBehaviour
     [Header("Ammo Settings")]
     public int magazineSize = 12;
     public int currentAmmo = 12;
-    public int damage = 10;
+    public int damage = 40;
 
     [Header("XR Input")]
     public InputActionProperty triggerAction;
+    public InputActionProperty reloadAction;
 
     [Header("Recoil")]
     [SerializeField] private float recoilKickBack = 0.05f;
@@ -80,7 +83,7 @@ public class SimpleShoot : MonoBehaviour
             }
         }
 
-        if (Keyboard.current.rKey.wasPressedThisFrame)
+        if (reloadAction.action != null && reloadAction.action.WasPressedThisFrame())
         {
             Reload();
         }
@@ -100,6 +103,8 @@ public class SimpleShoot : MonoBehaviour
 
     void Reload()
     {
+        if (reloadSound != null)
+            audioSource.PlayOneShot(reloadSound);
         currentAmmo = magazineSize;
         Debug.Log("Reloaded!");
     }
@@ -130,11 +135,24 @@ public class SimpleShoot : MonoBehaviour
         if (Physics.Raycast(barrelLocation.position, barrelLocation.forward, out hit, 100f))
         {
             Debug.Log("Hit: " + hit.collider.name);
+            Debug.DrawRay(hit.point, hit.normal, Color.green, 2f);
 
-            // DAMAGE TARGET
+            HeadshotTarget headshot = hit.collider.GetComponent<HeadshotTarget>();
             Target target = hit.collider.GetComponent<Target>();
 
-            if (target != null)
+            if (headshot != null)
+            {
+                headshot.TakeHeadshot(damage);
+
+                if (hitmarker != null)
+                    hitmarker.ShowHitmarker();
+
+                if (headshotSound != null)
+                    audioSource.PlayOneShot(headshotSound);
+
+                Debug.Log("HEADSHOT!");
+            }
+            else if (target != null)
             {
                 target.TakeDamage(damage);
 
@@ -145,22 +163,35 @@ public class SimpleShoot : MonoBehaviour
                     audioSource.PlayOneShot(hitSound);
             }
 
-            // PAINT SPLAT
             if (bulletHolePrefab != null)
             {
-                Quaternion rot = Quaternion.LookRotation(hit.normal);
-
-                GameObject splat = Instantiate(
+                GameObject hole = Instantiate(
                     bulletHolePrefab,
-                    hit.point + hit.normal * 0.01f,
-                    rot * Quaternion.Euler(0, 0, Random.Range(0, 360))
+                    hit.point + hit.normal * 0.02f,
+                    Quaternion.LookRotation(-hit.normal)
                 );
 
-                float scale = Random.Range(0.8f, 1.3f);
-                splat.transform.localScale *= scale;
+                // random rotation around surface
+                hole.transform.Rotate(0f, 0f, Random.Range(0f, 360f));
 
-                splat.transform.SetParent(hit.collider.transform);
+                // slight tilt so they don't look identical
+                hole.transform.Rotate(
+                    Random.Range(-8f, 8f),
+                    Random.Range(-8f, 8f),
+                    0f
+                );
+
+                // random size
+                float size = Random.Range(0.2f, 0.5f);
+                hole.transform.localScale = Vector3.one * size;
+
+                // attach to hit object
+                hole.transform.SetParent(hit.collider.transform);
+
+                // cleanup after time
+                Destroy(hole, 30f);
             }
+
         }
 
         // Optional projectile bullet
