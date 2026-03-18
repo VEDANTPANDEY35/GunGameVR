@@ -1,8 +1,5 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.XR;
 
 [AddComponentMenu("Nokobot/Modern Guns/Simple Shoot")]
 public class SimpleShoot : MonoBehaviour
@@ -15,13 +12,13 @@ public class SimpleShoot : MonoBehaviour
 
     [Header("Hit Feedback")]
     public AudioClip hitSound;
+    public AudioClip headshotSound;
     public HitmarkerPopup hitmarker;
 
     [Header("Audio")]
     public AudioClip gunSound;
-    private AudioSource audioSource;
-    public AudioClip headshotSound;
     public AudioClip reloadSound;
+    private AudioSource audioSource;
 
     [Header("Location References")]
     [SerializeField] private Animator gunAnimator;
@@ -33,10 +30,16 @@ public class SimpleShoot : MonoBehaviour
     [SerializeField] private float shotPower = 500f;
     [SerializeField] private float ejectPower = 150f;
 
-    [Header("Ammo Settings")]
-    public int magazineSize = 12;
-    public int currentAmmo = 12;
+    [Header("Ammo")]
+    public int magazineSize = 7;
+    public int currentAmmo = 7;
     public int damage = 40;
+
+    [Header("Fire Settings")]
+    private bool triggerHeld = false;
+    private float nextFireTime = 0f;
+    private float fireCooldown = 0.25f; // adjust if needed
+    private int lastFireFrame = -1;
 
     [Header("XR Input")]
     public InputActionProperty triggerAction;
@@ -69,25 +72,28 @@ public class SimpleShoot : MonoBehaviour
 
     void Update()
     {
-        if (triggerAction.action != null && triggerAction.action.WasPressedThisFrame())
+        // ===== FIRE (FULLY FIXED) =====
+        if (Mouse.current.leftButton.wasPressedThisFrame)
         {
-            if (currentAmmo > 0)
-            {
-                currentAmmo--;
-                gunAnimator.SetTrigger("Fire");
-                Debug.Log("Ammo: " + currentAmmo + " / " + magazineSize);
-            }
-            else
-            {
-                Debug.Log("Out of ammo! Press R to reload.");
-            }
+            // prevent double fire in same frame
+            if (Time.frameCount == lastFireFrame) return;
+
+            // cooldown check
+            if (Time.time < nextFireTime) return;
+
+            lastFireFrame = Time.frameCount;
+            nextFireTime = Time.time + fireCooldown;
+
+            TryShoot();
         }
 
-        if (reloadAction.action != null && reloadAction.action.WasPressedThisFrame())
+        // ===== RELOAD =====
+        if (Keyboard.current.rKey.wasPressedThisFrame)
         {
             Reload();
         }
 
+        // ===== RECOIL RESET =====
         transform.localPosition = Vector3.Lerp(
             transform.localPosition,
             originalLocalPosition,
@@ -101,41 +107,47 @@ public class SimpleShoot : MonoBehaviour
         );
     }
 
-    void Reload()
+    void TryShoot()
     {
-        if (reloadSound != null)
-            audioSource.PlayOneShot(reloadSound);
-        currentAmmo = magazineSize;
-        Debug.Log("Reloaded!");
+        if (currentAmmo <= 0)
+        {
+            Debug.Log("Out of ammo!");
+            return;
+        }
+
+        if (gunAnimator != null)
+            gunAnimator.SetTrigger("Fire");
     }
 
-    // Called by animation event
     void Shoot()
     {
+        Debug.Log("SHOT FIRED");
+
+        currentAmmo--;
+        Debug.Log("Ammo: " + currentAmmo + " / " + magazineSize);
+
         ApplyRecoil();
 
-        // Gun sound
+        // sound
         if (gunSound != null)
             audioSource.PlayOneShot(gunSound);
 
-        // Muzzle flash
+        // muzzle flash
         if (muzzleFlashPrefab)
         {
-            GameObject tempFlash = Instantiate(
+            GameObject flash = Instantiate(
                 muzzleFlashPrefab,
                 barrelLocation.position,
                 barrelLocation.rotation
             );
 
-            Destroy(tempFlash, destroyTimer);
+            Destroy(flash, destroyTimer);
         }
 
-        RaycastHit hit;
-
-        if (Physics.Raycast(barrelLocation.position, barrelLocation.forward, out hit, 100f))
+        // raycast
+        if (Physics.Raycast(barrelLocation.position, barrelLocation.forward, out RaycastHit hit, 100f))
         {
             Debug.Log("Hit: " + hit.collider.name);
-            Debug.DrawRay(hit.point, hit.normal, Color.green, 2f);
 
             HeadshotTarget headshot = hit.collider.GetComponent<HeadshotTarget>();
             Target target = hit.collider.GetComponent<Target>();
@@ -143,27 +155,18 @@ public class SimpleShoot : MonoBehaviour
             if (headshot != null)
             {
                 headshot.TakeHeadshot(damage);
-
-                if (hitmarker != null)
-                    hitmarker.ShowHitmarker();
-
-                if (headshotSound != null)
-                    audioSource.PlayOneShot(headshotSound);
-
-                Debug.Log("HEADSHOT!");
+                hitmarker?.ShowHitmarker();
+                if (headshotSound) audioSource.PlayOneShot(headshotSound);
             }
             else if (target != null)
             {
                 target.TakeDamage(damage);
-
-                if (hitmarker != null)
-                    hitmarker.ShowHitmarker();
-
-                if (hitSound != null)
-                    audioSource.PlayOneShot(hitSound);
+                hitmarker?.ShowHitmarker();
+                if (hitSound) audioSource.PlayOneShot(hitSound);
             }
 
-            if (bulletHolePrefab != null)
+            // bullet hole
+            if (bulletHolePrefab)
             {
                 GameObject hole = Instantiate(
                     bulletHolePrefab,
@@ -171,82 +174,71 @@ public class SimpleShoot : MonoBehaviour
                     Quaternion.LookRotation(-hit.normal)
                 );
 
-                // random rotation around surface
-                hole.transform.Rotate(0f, 0f, Random.Range(0f, 360f));
+                hole.transform.Rotate(0, 0, Random.Range(0, 360));
+                hole.transform.Rotate(Random.Range(-8f, 8f), Random.Range(-8f, 8f), 0);
 
-                // slight tilt so they don't look identical
-                hole.transform.Rotate(
-                    Random.Range(-8f, 8f),
-                    Random.Range(-8f, 8f),
-                    0f
-                );
-
-                // random size
                 float size = Random.Range(0.2f, 0.5f);
                 hole.transform.localScale = Vector3.one * size;
 
-                // attach to hit object
                 hole.transform.SetParent(hit.collider.transform);
 
-                // cleanup after time
                 Destroy(hole, 30f);
             }
-
         }
 
-        // Optional projectile bullet
+        // projectile (optional)
         if (bulletPrefab)
         {
-            Rigidbody bulletRB = Instantiate(
+            Rigidbody rb = Instantiate(
                 bulletPrefab,
                 barrelLocation.position,
                 barrelLocation.rotation
             ).GetComponent<Rigidbody>();
 
-            bulletRB.AddForce(barrelLocation.forward * shotPower);
+            rb.AddForce(barrelLocation.forward * shotPower);
         }
+
+        // casing
+        CasingRelease();
     }
 
-    // Called by animation event
+    void Reload()
+    {
+        if (reloadSound != null)
+            audioSource.PlayOneShot(reloadSound);
+
+        currentAmmo = magazineSize;
+
+        Debug.Log("Reloaded!");
+    }
+
     void CasingRelease()
     {
         if (!casingExitLocation || !casingPrefab)
             return;
 
-        GameObject tempCasing = Instantiate(
+        GameObject casing = Instantiate(
             casingPrefab,
             casingExitLocation.position,
             casingExitLocation.rotation
         );
 
-        Rigidbody casingRB = tempCasing.GetComponent<Rigidbody>();
+        Rigidbody rb = casing.GetComponent<Rigidbody>();
 
-        casingRB.AddExplosionForce(
+        rb.AddExplosionForce(
             Random.Range(ejectPower * 0.7f, ejectPower),
-            (casingExitLocation.position
-            - casingExitLocation.right * 0.3f
-            - casingExitLocation.up * 0.6f),
+            casingExitLocation.position,
             1f
         );
 
-        casingRB.AddTorque(
-            new Vector3(
-                0,
-                Random.Range(100f, 500f),
-                Random.Range(100f, 1000f)
-            ),
-            ForceMode.Impulse
-        );
-
-        Destroy(tempCasing, destroyTimer);
+        Destroy(casing, destroyTimer);
     }
 
     void ApplyRecoil()
     {
         transform.localPosition -= new Vector3(0, 0, recoilKickBack);
 
-        float sideKick = Random.Range(-recoilSide, recoilSide);
-
-        transform.localRotation *= Quaternion.Euler(-recoilUp, sideKick, 0);
+        float side = Random.Range(-recoilSide, recoilSide);
+        transform.localRotation *= Quaternion.Euler(-recoilUp, side, 0);
     }
 }
