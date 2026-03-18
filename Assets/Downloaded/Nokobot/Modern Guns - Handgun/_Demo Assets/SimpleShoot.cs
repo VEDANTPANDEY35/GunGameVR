@@ -41,8 +41,8 @@ public class SimpleShoot : MonoBehaviour
     private float fireCooldown = 0.25f; // adjust if needed
     private int lastFireFrame = -1;
 
-    [Header("XR Input")]
-    public InputActionProperty triggerAction;
+    [Header("Input")]
+    public InputActionProperty fireAction;
     public InputActionProperty reloadAction;
 
     [Header("Recoil")]
@@ -72,8 +72,8 @@ public class SimpleShoot : MonoBehaviour
 
     void Update()
     {
-        // ===== FIRE (FULLY FIXED) =====
-        if (Mouse.current.leftButton.wasPressedThisFrame)
+        // ===== FIRE (INSPECTOR-BASED INPUT) =====
+        if (fireAction.action != null && fireAction.action.WasPressedThisFrame())
         {
             // prevent double fire in same frame
             if (Time.frameCount == lastFireFrame) return;
@@ -88,7 +88,7 @@ public class SimpleShoot : MonoBehaviour
         }
 
         // ===== RELOAD =====
-        if (Keyboard.current.rKey.wasPressedThisFrame)
+        if (reloadAction.action != null && reloadAction.action.WasPressedThisFrame())
         {
             Reload();
         }
