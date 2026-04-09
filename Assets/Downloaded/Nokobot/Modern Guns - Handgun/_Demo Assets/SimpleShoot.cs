@@ -36,9 +36,8 @@ public class SimpleShoot : MonoBehaviour
     public int damage = 40;
 
     [Header("Fire Settings")]
-    private bool triggerHeld = false;
     private float nextFireTime = 0f;
-    private float fireCooldown = 0.25f; // adjust if needed
+    private float fireCooldown = 0.25f;
     private int lastFireFrame = -1;
 
     [Header("Input")]
@@ -72,13 +71,10 @@ public class SimpleShoot : MonoBehaviour
 
     void Update()
     {
-        // ===== FIRE (INSPECTOR-BASED INPUT) =====
+        // FIRE
         if (fireAction.action != null && fireAction.action.WasPressedThisFrame())
         {
-            // prevent double fire in same frame
             if (Time.frameCount == lastFireFrame) return;
-
-            // cooldown check
             if (Time.time < nextFireTime) return;
 
             lastFireFrame = Time.frameCount;
@@ -87,13 +83,13 @@ public class SimpleShoot : MonoBehaviour
             TryShoot();
         }
 
-        // ===== RELOAD =====
+        // RELOAD
         if (reloadAction.action != null && reloadAction.action.WasPressedThisFrame())
         {
             Reload();
         }
 
-        // ===== RECOIL RESET =====
+        // RECOIL RESET
         transform.localPosition = Vector3.Lerp(
             transform.localPosition,
             originalLocalPosition,
@@ -119,6 +115,7 @@ public class SimpleShoot : MonoBehaviour
             gunAnimator.SetTrigger("Fire");
     }
 
+    // ⚠️ THIS FUNCTION IS CALLED FROM ANIMATION EVENT
     void Shoot()
     {
         Debug.Log("SHOT FIRED");
@@ -144,13 +141,14 @@ public class SimpleShoot : MonoBehaviour
             Destroy(flash, destroyTimer);
         }
 
-        // raycast
+        // RAYCAST
         if (Physics.Raycast(barrelLocation.position, barrelLocation.forward, out RaycastHit hit, 100f))
         {
             Debug.Log("Hit: " + hit.collider.name);
 
-            HeadshotTarget headshot = hit.collider.GetComponent<HeadshotTarget>();
-            Target target = hit.collider.GetComponent<Target>();
+            // ✅ FIXED PART (IMPORTANT)
+            HeadshotTarget headshot = hit.collider.GetComponentInParent<HeadshotTarget>();
+            Target target = hit.collider.GetComponentInParent<Target>();
 
             if (headshot != null)
             {

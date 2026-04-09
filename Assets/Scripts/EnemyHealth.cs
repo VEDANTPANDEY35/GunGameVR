@@ -1,16 +1,12 @@
 using UnityEngine;
-using System;
 
-public class Target : MonoBehaviour
+public class EnemyHealth : MonoBehaviour
 {
-    public int health = 150;
-
-    public Action OnDeath;
+    public int health = 50;
 
     public void TakeDamage(int damage)
     {
         health -= damage;
-        Debug.Log("Health remaining: " + health);
 
         if (health <= 0)
         {
@@ -20,7 +16,7 @@ public class Target : MonoBehaviour
 
     void Die()
     {
-        OnDeath?.Invoke(); // notify spawner
+        GameManager.instance.AddScore(1);
         Destroy(gameObject);
     }
 }

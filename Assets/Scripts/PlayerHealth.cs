@@ -55,11 +55,17 @@ public class PlayerHealth : MonoBehaviour
 
         if (gameOverUI != null)
             gameOverUI.SetActive(true);
+
+        // 🟢 Freeze game
+        Time.timeScale = 0f;
     }
 
     public void Respawn()
     {
         Debug.Log("Respawning");
+
+        // 🟢 Resume game
+        Time.timeScale = 1f;
 
         currentHealth = maxHealth;
         isDead = false;
