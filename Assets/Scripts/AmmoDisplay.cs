@@ -10,4 +10,4 @@ public class AmmoDisplay : MonoBehaviour
     {
         ammoText.text = gun.currentAmmo + " / " + gun.magazineSize;
     }
-}
+}// PR test change
