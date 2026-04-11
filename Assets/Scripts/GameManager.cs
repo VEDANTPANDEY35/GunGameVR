@@ -1,19 +1,47 @@
 using UnityEngine;
+using TMPro;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
-    public static GameManager instance;
+    public static GameManager Instance;
 
-    public int score = 0;
+    public TextMeshProUGUI scoreText;
+    public GameObject gameOverPanel;
+
+    private int score = 0;
 
     void Awake()
     {
-        instance = this;
+        Instance = this;
+    }
+
+    void Start()
+    {
+        UpdateScore();
     }
 
     public void AddScore(int amount)
     {
         score += amount;
-        Debug.Log("Score: " + score);
+        UpdateScore();
+    }
+
+    void UpdateScore()
+    {
+        if (scoreText != null)
+            scoreText.text = "Score: " + score;
+    }
+
+    public void GameOver()
+    {
+        gameOverPanel.SetActive(true);
+        Time.timeScale = 0f;
+    }
+
+    public void RestartGame()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }

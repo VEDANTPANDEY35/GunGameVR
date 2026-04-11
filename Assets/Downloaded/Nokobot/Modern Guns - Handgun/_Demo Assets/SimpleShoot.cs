@@ -71,7 +71,6 @@ public class SimpleShoot : MonoBehaviour
 
     void Update()
     {
-        // FIRE
         if (fireAction.action != null && fireAction.action.WasPressedThisFrame())
         {
             if (Time.frameCount == lastFireFrame) return;
@@ -83,13 +82,11 @@ public class SimpleShoot : MonoBehaviour
             TryShoot();
         }
 
-        // RELOAD
         if (reloadAction.action != null && reloadAction.action.WasPressedThisFrame())
         {
             Reload();
         }
 
-        // RECOIL RESET
         transform.localPosition = Vector3.Lerp(
             transform.localPosition,
             originalLocalPosition,
@@ -115,7 +112,7 @@ public class SimpleShoot : MonoBehaviour
             gunAnimator.SetTrigger("Fire");
     }
 
-    // ⚠️ THIS FUNCTION IS CALLED FROM ANIMATION EVENT
+    // 🔥 FIXED SHOOT FUNCTION
     void Shoot()
     {
         Debug.Log("SHOT FIRED");
@@ -125,11 +122,9 @@ public class SimpleShoot : MonoBehaviour
 
         ApplyRecoil();
 
-        // sound
         if (gunSound != null)
             audioSource.PlayOneShot(gunSound);
 
-        // muzzle flash
         if (muzzleFlashPrefab)
         {
             GameObject flash = Instantiate(
@@ -141,26 +136,20 @@ public class SimpleShoot : MonoBehaviour
             Destroy(flash, destroyTimer);
         }
 
-        // RAYCAST
+        // ✅ FIXED: ONLY EnemyHealth
         if (Physics.Raycast(barrelLocation.position, barrelLocation.forward, out RaycastHit hit, 100f))
         {
             Debug.Log("Hit: " + hit.collider.name);
 
-            // ✅ FIXED PART (IMPORTANT)
-            HeadshotTarget headshot = hit.collider.GetComponentInParent<HeadshotTarget>();
-            Target target = hit.collider.GetComponentInParent<Target>();
+            EnemyHealth enemy = hit.collider.GetComponentInParent<EnemyHealth>();
 
-            if (headshot != null)
+            if (enemy != null)
             {
-                headshot.TakeHeadshot(damage);
+                enemy.TakeDamage(damage);
                 hitmarker?.ShowHitmarker();
-                if (headshotSound) audioSource.PlayOneShot(headshotSound);
-            }
-            else if (target != null)
-            {
-                target.TakeDamage(damage);
-                hitmarker?.ShowHitmarker();
-                if (hitSound) audioSource.PlayOneShot(hitSound);
+
+                if (hitSound)
+                    audioSource.PlayOneShot(hitSound);
             }
 
             // bullet hole
@@ -173,7 +162,6 @@ public class SimpleShoot : MonoBehaviour
                 );
 
                 hole.transform.Rotate(0, 0, Random.Range(0, 360));
-                hole.transform.Rotate(Random.Range(-8f, 8f), Random.Range(-8f, 8f), 0);
 
                 float size = Random.Range(0.2f, 0.5f);
                 hole.transform.localScale = Vector3.one * size;
@@ -184,7 +172,6 @@ public class SimpleShoot : MonoBehaviour
             }
         }
 
-        // projectile (optional)
         if (bulletPrefab)
         {
             Rigidbody rb = Instantiate(
@@ -196,7 +183,6 @@ public class SimpleShoot : MonoBehaviour
             rb.AddForce(barrelLocation.forward * shotPower);
         }
 
-        // casing
         CasingRelease();
     }
 

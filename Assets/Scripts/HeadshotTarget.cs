@@ -2,14 +2,18 @@ using UnityEngine;
 
 public class HeadshotTarget : MonoBehaviour
 {
-    public Target bodyTarget;
-    public int headshotMultiplier = 4;
+    public int headshotMultiplier = 2;
 
-    public void TakeHeadshot(int damage)
+    public void TakeHeadshot(int baseDamage)
     {
-        if (bodyTarget != null)
+        EnemyHealth enemy = GetComponentInParent<EnemyHealth>();
+
+        if (enemy != null)
         {
-            bodyTarget.TakeDamage(damage * headshotMultiplier);
+            int finalDamage = baseDamage * headshotMultiplier;
+            enemy.TakeDamage(finalDamage);
+
+            Debug.Log("HEADSHOT!");
         }
     }
 }

@@ -5,49 +5,30 @@ public class WaveSpawner : MonoBehaviour
     public GameObject enemyPrefab;
     public Transform[] spawnPoints;
 
-    public float spawnDelay = 3f;
-    public int enemiesPerWave = 3;
+    public int maxEnemies = 5;
+    public float spawnDelay = 2f;
 
-    private int enemiesAlive = 0;
+    private int currentEnemies = 0;
 
     void Start()
     {
-        StartCoroutine(SpawnWave());
-    }
-
-    System.Collections.IEnumerator SpawnWave()
-    {
-        while (true)
-        {
-            // wait until all enemies are dead
-            while (enemiesAlive > 0)
-                yield return null;
-
-            // spawn new wave
-            for (int i = 0; i < enemiesPerWave; i++)
-            {
-                SpawnEnemy();
-                yield return new WaitForSeconds(1f);
-            }
-
-            yield return new WaitForSeconds(spawnDelay);
-        }
+        InvokeRepeating(nameof(SpawnEnemy), 1f, spawnDelay);
     }
 
     void SpawnEnemy()
     {
-        Transform spawn = spawnPoints[Random.Range(0, spawnPoints.Length)];
+        if (currentEnemies >= maxEnemies) return;
 
-        GameObject enemy = Instantiate(enemyPrefab, spawn.position, spawn.rotation);
+        Transform spawnPoint = spawnPoints[Random.Range(0, spawnPoints.Length)];
 
-        enemiesAlive++;
+        GameObject enemy = Instantiate(enemyPrefab, spawnPoint.position, spawnPoint.rotation);
 
-        // track death
-        enemy.GetComponent<Target>().OnDeath += OnEnemyDeath;
-    }
+        currentEnemies++;
 
-    void OnEnemyDeath()
-    {
-        enemiesAlive--;
+        // 🔥 IMPORTANT: decrease count when enemy dies
+        enemy.GetComponent<EnemyHealth>().onDeath += () =>
+        {
+            currentEnemies--;
+        };
     }
 }
